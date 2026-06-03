@@ -1,13 +1,13 @@
-class LumpedModel():
+class Unit():
     """
     This class defines a lumped hydrological model (i.e. a Unit in SuperflexPy).
     A unit is a collection of elements. It's task is to build the basic structure,
     connecting different elements.
     """
 
-    def __init__(self, layers):
+    def __init__(self, layers, id):
         """
-        This is the initializer of the class LumpedModel.
+        This is the initializer of the class Unit.
 
         Parameters
         ----------
@@ -18,8 +18,9 @@ class LumpedModel():
         """
 
         self._layers = layers
+        self.id = id
 
-    def set_rain_input(self, rain_input_flux, rain_input_concentration=None,
+    def set_unit_input(self, rain_input_flux, rain_input_concentration=None,
                        rain_TTDs=None, rain_mass_TTD=None):
         """
         This method sets the rain inputs to the model.
@@ -36,22 +37,18 @@ class LumpedModel():
             Timeseries of rain water TTD. Should be given for age computation.
             Should always be represented as dirac delta distributions.
         rain_mass_TTDs : numpy.ndarray
-            Timeseries of rain mass TTD. Should be given for mass tracking
+            Timeseries of rain tracer mass TTD. Should be given for mass tracking
             computation. Should always be represented as dirac delta
             distributions.
         """
 
         self.rain_input = rain_input_flux
-
-        if rain_input_concentration is not None:
-            self.rain_input_concentration = rain_input_concentration
-        else:
-            self.rain_input_concentration = None
+        self.rain_input_concentration = rain_input_concentration
 
         self.rain_TTDs = rain_TTDs
         self.rain_mass_TTDs = rain_mass_TTD
 
-    def run(self):
+    def run_unit(self):
         """
         This method solves the Unit, solving each Element and putting together
         their outputs according to the structure.
