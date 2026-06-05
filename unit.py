@@ -20,8 +20,8 @@ class Unit():
         self._layers = layers
         self.id = id
 
-    def set_unit_input(self, rain_input_flux, rain_input_concentration=None,
-                       rain_TTDs=None, rain_mass_TTD=None):
+    def set_input(self, rain_input_flux, rain_input_concentration=None,
+                  rain_TTDs=None, rain_mass_TTD=None):
         """
         This method sets the rain inputs to the model.
 

@@ -1,5 +1,5 @@
 import numpy as np
-from package.elements import BaseElement
+from base_elements import BaseElement
 
 
 class Splitter(BaseElement):
@@ -60,13 +60,8 @@ class Splitter(BaseElement):
 
         output = []
 
-        if self.input_mass_TTD is not None:
-            for w in self._weight:
-                output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD, self.input_mass_TTD)))
-
-        else:
-            for w in self._weight:
-                output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD, None)))
+        for w in self._weight:
+            output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD, self.input_mass_TTD)))
 
         # Reassign attributes to save memory
         self.input_flux = None
