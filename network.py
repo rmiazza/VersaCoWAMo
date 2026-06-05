@@ -52,8 +52,7 @@ class Network():
                 Tuple with:
                 - the output flux timeseries (index 0) as numpy.array of length t;
                 - the output concentration timeseries (index 1) as numpy.array of length t;
-                - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T;
-                - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray of dimension t x T.
+                - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T.
         """
 
         # Keep track of the solved nodes
@@ -81,18 +80,16 @@ class Network():
                             solvable = False
                     if solvable:
                         # Solve the current node
-                        q, c, ttd_q, ttd_m = self._nodes[self._nodes_pointer[n]].run_node()
+                        q, c, ttd_q = self._nodes[self._nodes_pointer[n]].run_node()
                         w = self._nodes[self._nodes_pointer[n]].area / self._total_area[n]
 
                         # Combine with fluxes from upstream nodes
                         out_q = q * w
                         out_c = c * q * w if c is not None else None
                         out_ttd_q = ttd_q * q[:, np.newaxis] * w if ttd_q is not None else None
-                        out_mflux = c * q * w if c is not None else None
-                        out_ttd_m = ttd_m * c[:, np.newaxis] * q[:, np.newaxis] * w if ttd_m is not None else None
                         
                         for n_up in self._upstream[n]:
-                            q_up, c_up, ttd_q_up, ttd_m_up = (
+                            q_up, c_up, ttd_q_up = (
                                 self._nodes[self._nodes_pointer[n_up]].external_routing(output[n_up])
                                 )
                             w_up = self._total_area[n_up] / self._total_area[n]
@@ -100,14 +97,11 @@ class Network():
                             out_q += q_up * w_up
                             out_c = out_c + c_up * q_up * w_up if (out_c is not None and c_up is not None) else None
                             out_ttd_q = out_ttd_q + ttd_q_up * q_up[:, np.newaxis] * w_up if (out_ttd_q is not None and ttd_q_up is not None) else None
-                            out_mflux = out_mflux + c_up * q_up * w_up if (out_mflux is not None and c_up is not None) else None
-                            out_ttd_m = out_ttd_m + ttd_m_up * c_up[:, np.newaxis] * q_up[:, np.newaxis] * w_up if (out_ttd_m is not None and ttd_m_up is not None) else None
 
                         if out_c is not None: out_c /= out_q
                         if out_ttd_q is not None: out_ttd_q /= out_q[:, np.newaxis]
-                        if out_ttd_m is not None: out_ttd_m /= out_mflux[:, np.newaxis]
 
-                        output[n] = tuple((out_q, out_c, out_ttd_q, out_ttd_m))
+                        output[n] = tuple((out_q, out_c, out_ttd_q))
                         solved[n] = True
 
                         if self._downstream[n] is None:
@@ -209,11 +203,6 @@ class Network():
         The following flags are checked for consistency across all reservoirs:
             - concentration_computation
             - age_computation
-            - mass_tracking_computation
-
-        The following implied constraints are also verified:
-            - mass_tracking_computation=True requires age_computation=True
-            - mass_tracking_computation=True requires concentration_computation=True
 
         Raises
         ------
@@ -240,8 +229,7 @@ class Network():
         ref = reservoirs[0]
         ref_flags = {
             'concentration_computation': ref.concentration_computation,
-            'age_computation':           ref.age_computation,
-            'mass_tracking_computation': ref.mass_tracking_computation,
+            'age_computation':           ref.age_computation
         }
 
         # Check consistency of all reservoirs against the reference
@@ -253,17 +241,3 @@ class Network():
                         f'expected {ref_val} (as in Reservoir "{ref._id}"), '
                         f'got {getattr(res, flag)}.'
                     )
-
-        # Check implied constraints (sufficient to check on reference
-        # since all reservoirs are consistent at this point)
-        if ref_flags['mass_tracking_computation']:
-            if not ref_flags['age_computation']:
-                raise ValueError(
-                    'mass_tracking_computation=True requires age_computation=True '
-                    'across all reservoirs.'
-                )
-            if not ref_flags['concentration_computation']:
-                raise ValueError(
-                    'mass_tracking_computation=True requires concentration_computation=True '
-                    'across all reservoirs.'
-                )

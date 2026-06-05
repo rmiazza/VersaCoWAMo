@@ -21,7 +21,7 @@ class Unit():
         self.id = id
 
     def set_input(self, rain_input_flux, rain_input_concentration=None,
-                  rain_TTDs=None, rain_mass_TTD=None):
+                  rain_TTDs=None):
         """
         This method sets the rain inputs to the model.
 
@@ -36,17 +36,10 @@ class Unit():
         rain_TTDs : numpy.ndarray
             Timeseries of rain water TTD. Should be given for age computation.
             Should always be represented as dirac delta distributions.
-        rain_mass_TTDs : numpy.ndarray
-            Timeseries of rain tracer mass TTD. Should be given for mass tracking
-            computation. Should always be represented as dirac delta
-            distributions.
         """
-
         self.rain_input = rain_input_flux
         self.rain_input_concentration = rain_input_concentration
-
         self.rain_TTDs = rain_TTDs
-        self.rain_mass_TTDs = rain_mass_TTD
 
     def run_unit(self):
         """
@@ -55,18 +48,18 @@ class Unit():
 
         Returns
         -------
-        Output : Tuple(numpy.array, numpy.array, numpy.ndarray, numpy.ndarray)
+        Output : Tuple(numpy.array, numpy.array, numpy.ndarray)
             Tuple with:
             - the output flux timeseries (index 0) as numpy.array;
             - the output concentration timeseries (index 1) as numpy.array;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray.
+            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray.
         """
 
         # Set the input flux and concentration from rain to the first layer
         # (the first layer must contain a single element)
-        self._layers[0][0].set_input([tuple((self.rain_input, self.rain_input_concentration,
-                                             self.rain_TTDs, self.rain_mass_TTDs))])
+        self._layers[0][0].set_input(
+            [tuple((self.rain_input, self.rain_input_concentration, self.rain_TTDs))]
+            )
 
         # Loop over every layer and solve states and fluxes
         for i in range(1, len(self._layers)):

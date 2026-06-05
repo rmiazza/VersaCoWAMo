@@ -56,7 +56,7 @@ class Node():
             self._weights = weights
 
     def set_input(self, rain_input_flux, rain_input_concentration=None,
-                  rain_TTDs=None, rain_mass_TTD=None):
+                  rain_TTDs=None):
         """
         This method sets the rain inputs to the model.
 
@@ -71,17 +71,11 @@ class Node():
         rain_TTDs : numpy.ndarray
             Timeseries of rain water TTD. Should be given for age computation.
             Should always be represented as dirac delta distributions.
-        rain_mass_TTDs : numpy.ndarray
-            Timeseries of rain tracer mass TTD. Should be given for mass tracking
-            computation. Should always be represented as dirac delta
-            distributions.
         """
-
         self.rain_input = rain_input_flux
         self.rain_input_concentration = rain_input_concentration
-
         self.rain_TTDs = rain_TTDs
-        self.rain_mass_TTDs = rain_mass_TTD
+
     
     def run_node(self):
         """
@@ -90,19 +84,19 @@ class Node():
 
         Returns
         -------
-        Output : Tuple(numpy.array, numpy.array, numpy.ndarray, numpy.ndarray)
+        Output : Tuple(numpy.array, numpy.array, numpy.ndarray)
             Tuple with:
             - the output flux timeseries (index 0) as numpy.array of length t;
             - the output concentration timeseries (index 1) as numpy.array of length t;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray of dimension t x T.
+            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T.
         """
 
         # Set the inputs
         for u in self._units:
             u.set_input(
-                self.rain_input, self.rain_input_concentration,
-                self.rain_TTDs, self.rain_mass_TTDs
+                self.rain_input,
+                self.rain_input_concentration,
+                self.rain_TTDs
                 )
         
         if len(self._weights) == 1:  # case single unit in node
@@ -110,26 +104,21 @@ class Node():
         
         # Case multiple units in node -> apply weights based on area
         for i, (u, w) in enumerate(zip(self._units, self._weights)):
-            q, c, ttd_q, ttd_m = u.run_unit()
+            q, c, ttd_q = u.run_unit()
 
             if i == 0:
                 out_q = q * w
                 out_c = c * q * w if c is not None else None
                 out_ttd_q = ttd_q * q[:, np.newaxis] * w if ttd_q is not None else None
-                out_mflux = c * q * w if c is not None else None
-                out_ttd_m = ttd_m * c[:, np.newaxis] * q[:, np.newaxis] * w if ttd_m is not None else None
             else:
                 out_q += q * w
                 out_c = out_c + c * q * w if out_c is not None else None
                 out_ttd_q = out_ttd_q + ttd_q * q[:, np.newaxis] * w if out_ttd_q is not None else None
-                out_mflux = out_mflux + c * q * w if out_mflux is not None else None
-                out_ttd_m = out_ttd_m + ttd_m * c[:, np.newaxis] * q[:, np.newaxis] * w if out_ttd_m is not None else None
         
         if out_c is not None: out_c /= out_q
         if out_ttd_q is not None: out_ttd_q /= out_q[:, np.newaxis]
-        if out_ttd_m is not None: out_ttd_m /= out_mflux[:, np.newaxis]
 
-        return tuple((out_q, out_c, out_ttd_q, out_ttd_m))
+        return tuple((out_q, out_c, out_ttd_q))
     
     def external_routing(self, input):
         """
@@ -144,8 +133,7 @@ class Node():
             Tuple with:
             - the output flux timeseries (index 0) as numpy.array of length t;
             - the output concentration timeseries (index 1) as numpy.array of length t;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray of dimension t x T.
+            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray of dimension t x T.
         """
         # TO DO: implement routing function to delay outputs to downstream node
         output = input

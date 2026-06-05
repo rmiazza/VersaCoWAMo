@@ -35,13 +35,12 @@ class Splitter(BaseElement):
             List containing a single Tuple with:
             - the input flux timeseries (index 0) as numpy.array;
             - the input concentration timeseries (index 1) as numpy.array;
-            - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray;
-            - the input mass TTDs (index 3, timeseries of input TTD) as numpy.ndarray.
+            - the input water TTDs (index 2, timeseries of input TTD) as
+              numpy.ndarray.
         """
         self.input_flux = input_tuple[0][0]
         self.input_concentration = input_tuple[0][1]
         self.input_TTD = input_tuple[0][2]
-        self.input_mass_TTD = input_tuple[0][3]
 
     def get_output(self):
         """
@@ -54,20 +53,19 @@ class Splitter(BaseElement):
             List of lists containing a single Tuple (one for each split) with:
             - the output flux timeseries (index 0) as numpy.array;
             - the output concentration timeseries (index 1) as numpy.array;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray.
+            - the output water TTDs (index 2, timeseries of output TTD) as
+              numpy.ndarray.
         """
 
         output = []
 
         for w in self._weight:
-            output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD, self.input_mass_TTD)))
+            output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD)))
 
         # Reassign attributes to save memory
         self.input_flux = None
         self.input_concentration = None
         self.input_TTD = None
-        self.input_mass_TTD = None
 
         return output
 
@@ -101,13 +99,11 @@ class Junction(BaseElement):
             List of lists containing a single Tuple (one for each input flux) with:
             - the input flux timeseries (index 0) as numpy.array;
             - the input concentration timeseries (index 1) as numpy.array;
-            - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray;
-            - the input mass TTDs (index 3, timeseries of input TTD) as numpy.ndarray.
+            - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray.
         """
         self.input_flux = np.array([i[0] for i in input_tuple])
         self.input_concentration = np.array([i[1] for i in input_tuple])
         self.input_TTDs = np.array([i[2] for i in input_tuple])
-        self.input_mass_TTDs = np.array([i[3] for i in input_tuple])
 
     def get_output(self):
         """
@@ -124,8 +120,7 @@ class Junction(BaseElement):
             List containing a single Tuple with:
             - the output flux timeseries (index 0) as numpy.array;
             - the output concentration timeseries (index 1) as numpy.array;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray.
+            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray.
         """
         def contains_none(array):
             return np.any(array == None)
@@ -135,7 +130,7 @@ class Junction(BaseElement):
 
         if contains_none(self.input_concentration) and contains_none(self.input_TTDs):
             # Flux only
-            output = [tuple((output_flux, None, None, None))]
+            output = [tuple((output_flux, None, None))]
 
         elif contains_none(self.input_concentration) == False and contains_none(self.input_TTDs):
             # Flux and concentration only
@@ -143,22 +138,10 @@ class Junction(BaseElement):
                 np.sum(self.input_flux * self.input_concentration, axis=0)
                 / output_flux
                 )
-            output = [tuple((output_flux, output_concentration, None, None))]
-
-        elif contains_none(self.input_mass_TTDs):
-            # Flux, concentration and flux TTD only
-            output_concentration = (
-                np.sum(self.input_flux * self.input_concentration, axis=0)
-                / output_flux
-                )
-            # Very slow to add new axis...
-            output_TTD = (
-                np.sum(self.input_flux[:, :, np.newaxis] * self.input_TTDs, axis=0)
-                / output_flux[:, np.newaxis]
-                )
-            output = [tuple((output_flux, output_concentration, output_TTD, None))]
+            output = [tuple((output_flux, output_concentration, None))]
 
         else:
+            # Flux, concentration and flux TTD
             output_concentration = (
                 np.sum(self.input_flux * self.input_concentration, axis=0)
                 / output_flux
@@ -168,20 +151,12 @@ class Junction(BaseElement):
                 np.sum(self.input_flux[:, :, np.newaxis] * self.input_TTDs, axis=0)
                 / output_flux[:, np.newaxis]
                 )
-
-            output_mass_flux = output_flux * output_concentration
-            output_mass_TTD = (
-                np.sum(self.input_flux[:, :, np.newaxis] * self.input_concentration[:, :, np.newaxis] * self.input_mass_TTDs, axis=0)
-                / output_mass_flux[:, np.newaxis]
-                )
-
-            output = [tuple((output_flux, output_concentration, output_TTD, output_mass_TTD))]
+            output = [tuple((output_flux, output_concentration, output_TTD))]
 
         # Reassign attributes to save memory
         self.input_flux = None
         self.input_concentration = None
         self.input_TTDs = None
-        self.input_mass_TTDs = None
 
         return output
 
@@ -216,13 +191,11 @@ class Transparent(BaseElement):
             List containing a single Tuple with:
             - the input flux timeseries (index 0) as numpy.array;
             - the input concentration timeseries (index 1) as numpy.array;
-            - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray;
-            - the input mass TTDs (index 3, timeseries of input TTD) as numpy.ndarray.
+            - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray.
         """
         self.input_flux = input_tuple[0][0]
         self.input_concentration = input_tuple[0][1]
         self.input_TTD = input_tuple[0][2]
-        self.input_mass_TTD = input_tuple[0][3]
 
     def get_output(self):
         """
@@ -234,15 +207,13 @@ class Transparent(BaseElement):
             List containing a single Tuple with:
             - the output flux timeseries (index 0) as numpy.array;
             - the output concentration timeseries (index 1) as numpy.array;
-            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray;
-            - the output mass TTDs (index 3, timeseries of output TTD) as numpy.ndarray.
+            - the output water TTDs (index 2, timeseries of output TTD) as numpy.ndarray.
         """
-        output = [tuple((self.input_flux, self.input_concentration, self.input_TTD, self.input_mass_TTD))]
+        output = [tuple((self.input_flux, self.input_concentration, self.input_TTD))]
 
         # Reassign up attributes to save memory
         self.input_flux = None
         self.input_concentration = None
         self.input_TTD = None
-        self.input_mass_TTD = None
 
         return output

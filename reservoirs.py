@@ -15,8 +15,7 @@ class Reservoir(BaseElement):
                  ET_timeseries=None, ETp_timeseries=None,
                  wilting_point=None, s_star=None,
                  age_computation=False, initial_TTD=None,
-                 num_ages_tracked=None, mass_tracking_computation=False,
-                 initial_ranked_mass=None
+                 num_ages_tracked=None
                  ):
         """
         This is the initializer of the class Reservoir.
@@ -81,15 +80,6 @@ class Reservoir(BaseElement):
             should be defined (no-steady-state spinup; for example for
             setting the TTD after a manual spinup period). It must be the size
             of num_age_tracked.
-
-        - Mass age tracking :
-        mass_tracking_computation : Bool
-            Defines if mass should be tracked (as ranked mass).
-        initial_ranked_mass : numpy.array
-            Initial ranked mass in storage if a specific ranked mass
-            should be defined (no-steady-state spinup; for example for
-            setting the ranked mass after a manual spinup period). It must be
-            the size of num_age_tracked.
         """
 
         BaseElement.__init__(self, id)
@@ -138,20 +128,6 @@ class Reservoir(BaseElement):
             else:
                 self.num_ages_tracked = num_ages_tracked
 
-        # Ranked mass initialization
-        self.mass_tracking_computation = mass_tracking_computation
-
-        if mass_tracking_computation is True and age_computation is False:
-            raise ValueError('Mass cannot be tracked without tracking water age.')
-
-        if mass_tracking_computation:
-            if initial_ranked_mass is not None and initial_storage is None:
-                raise ValueError('If an initial ranked mass is given, the initial storage concentration must also be given.')
-            if initial_ranked_mass is not None and initial_TTD is None:
-                raise ValueError('If an initial ranked mass is given, the initial storage TTD should also be given for consistency.')
-
-            self.initial_ranked_mass = initial_ranked_mass
-
         # Evapotranspiration initialization
         self.compute_ET = compute_ET
         self.compute_ET_internal = False
@@ -180,13 +156,10 @@ class Reservoir(BaseElement):
             - the input flux timeseries (index 0) as numpy.array;
             - the input concentration timeseries (index 1) as numpy.array;
             - the input water TTDs (index 2, timeseries of input TTD) as numpy.ndarray;
-            - the input mass TTDs (index 3, timeseries of input TTD) as numpy.ndarray.
         """
-
         self.input_flux = input_tuple[0][0]
         self.input_concentration = input_tuple[0][1]
         self.input_TTD = input_tuple[0][2]
-        self.input_mass_TTD = input_tuple[0][3]
 
     def delete_inputs(self):
         """
@@ -196,7 +169,6 @@ class Reservoir(BaseElement):
         self.input_flux = None
         self.input_concentration = None
         self.input_TTD = None
-        self.input_mass_TTD = None
 
     def solve_storage_and_output(self):
         """
@@ -431,10 +403,6 @@ class Reservoir(BaseElement):
                 / 6
             )
 
-        # Store ET concentration if computed (needed for mass tracking)
-        if self.compute_ET and self.mass_tracking_computation:
-            self.ET_concentration = C_ET
-
         # Compute output concentration by mass balance
         self.output_concentration = (
             (self.input_flux * self.input_concentration
@@ -511,183 +479,10 @@ class Reservoir(BaseElement):
 
             self.ranked_storage[i+1, :] = ranked_storage_next
 
-    def initialize_ranked_mass(self):
-        # TO DO : correction/check of method
-        """
-        Computes the initial ranked mass and "old" mass in storage based on the
-        solution of the steady-state equation for randomly sampled reservoirs.
-
-        If an initial ranked mass was given via the parameter
-        initial_ranked_mass, it will be assigned here.
-        """
-        # Case where an initial ranked mass was given as input
-        if self.initial_ranked_mass is not None:
-            initial_old_mass = (
-                self.initial_storage * self.initial_concentration
-                - np.sum(self.initial_ranked_mass)
-                )
-            return self.initial_ranked_mass, initial_old_mass
-
-        # Define evapotranspiration rates locally in case there is none
-        if self.compute_ET:
-            ET_bar = np.mean(self.output_ET)
-            alpha_ET_ = self.alpha_ET
-        else:
-            ET_bar = 0
-            alpha_ET_ = 0
-
-        # Define constants
-        Cin_bar = np.mean(self.input_concentration)
-        IN_bar = self._parameters['I_bar']  # could also be np.mean(self.input_flux)
-        OUT_bar = IN_bar - ET_bar  # could also be np.mean(self.output_flux)
-        S_bar = self._parameters['S_ref']
-        age_steps = np.arange(self.num_ages_tracked)
-        initial_storage_mass = self.initial_concentration * self.initial_storage
-
-        # Compute initial ranked mass and old mass
-        if self.reaction_type == 'Non-reactive':
-            initial_ranked_mass = (
-                np.exp(-(ET_bar * alpha_ET_ + OUT_bar) / S_bar * age_steps)
-                * np.cumsum(np.exp((ET_bar * alpha_ET_ + OUT_bar) / S_bar * age_steps)
-                            * Cin_bar * IN_bar * self.input_mass_TTD[0])
-            )
-            print(initial_ranked_mass)
-
-        elif self.reaction_type == 'ED':
-            initial_ranked_mass = (
-                np.exp(-((ET_bar * alpha_ET_ + OUT_bar) / S_bar + self.reaction_rate) * age_steps)
-                * np.cumsum(np.exp(((ET_bar * alpha_ET_ + OUT_bar) / S_bar + self.reaction_rate) * age_steps)
-                            * Cin_bar * IN_bar * self.input_mass_TTD[0])
-            )
-
-        elif self.reaction_type == 'FOK':
-            initial_ranked_mass = (
-                np.exp(-((ET_bar * alpha_ET_ + OUT_bar) / S_bar + self.reaction_rate) * age_steps)
-                * np.cumsum(np.exp(((ET_bar * alpha_ET_ + OUT_bar) / S_bar + self.reaction_rate) * age_steps)
-                            * (Cin_bar * IN_bar * self.input_mass_TTD[0] + self.reaction_rate * self.C_eq * self.ranked_storage[0]))
-            )
-
-        # Compute initial old storage
-        if np.sum(initial_ranked_mass) < 0:
-            # To delete when sure about anlytical solution
-            raise ValueError('Summed initial ranked mass is negative.')
-
-        elif np.sum(initial_ranked_mass) <= initial_storage_mass:
-            initial_old_mass = (
-                initial_storage_mass - np.sum(initial_ranked_mass)
-            )
-
-        elif np.sum(initial_ranked_mass) > initial_storage_mass:
-            # Normalize to ensure mass conservation
-            initial_ranked_mass = (
-                initial_ranked_mass * initial_storage_mass / np.sum(initial_ranked_mass)
-            )
-            initial_old_mass = 0
-
-        return initial_ranked_mass, initial_old_mass
-
-    def solve_ranked_storage_and_mass(self):
-        """
-        Computes the ranked storage and ranked mass together.
-        Implements first order reactions.
-        """
-        # Initialize ranked storage matrix and old storage
-        self.ranked_storage = np.zeros([len(self.storage), self.num_ages_tracked], dtype=float)
-        self.S_old = np.zeros(len(self.storage))
-        self.ranked_storage[0, :], self.S_old[0] = self.initialize_ranked_storage()
-
-        # Define reaction rates
-        if self.reaction_type == 'FOK':
-            def reaction_rate_FOK(S_r, m_r):
-                # Computes the reaction rate m_dot for first order kinetics
-                return S_r * self.reaction_rate * self.C_eq - self.reaction_rate * m_r
-
-        elif self.reaction_type == 'ED':
-            def reaction_rate_ED(m_r):
-                # Computes the reaction rate m_dot for exponential decay
-                return -self.reaction_rate * m_r
-
-        # Initialize ranked mass matrix and old mass
-        self.ranked_mass = np.zeros([len(self.storage), self.num_ages_tracked], dtype=float)
-        self.m_old = np.zeros(len(self.storage))
-        self.ranked_mass[0, :], self.m_old[0] = self.initialize_ranked_mass()
-
-        # Define local ET in case no evapotranspiration is taken into account
-        if self.compute_ET:
-            ET_flux = self.output_ET
-            ET_concentration = self.ET_concentration
-        else:
-            ET_flux = np.zeros_like(self.input_flux)
-            ET_concentration = ET_flux  # can be any value anyways
-
-        # Update ranked and old storage and mass for each timestep
-        for i, (IN, ET, OUT) in enumerate(zip(self.input_flux, ET_flux, self.output_flux)):
-            # 1) Ranked Storage
-            # Aging
-            ranked_storage_next = np.roll(self.ranked_storage[i, :], shift=1)
-            ranked_storage_next[0] = 0
-            self.S_old[i+1] = self.S_old[i] + self.ranked_storage[i, -1]
-
-            # Input water
-            ranked_storage_next = ranked_storage_next + IN * self.dt * self.input_TTD[i, :]
-            self.S_old[i+1] = self.S_old[i+1] + IN * self.dt * (1 - np.sum(self.input_TTD[i, :]))
-
-            # Output water
-            ranked_storage_next = ranked_storage_next / (1 + (OUT + ET) * self.dt / self.storage[i+1])
-            self.S_old[i+1] = self.S_old[i+1] / (1 + (OUT + ET) * self.dt / self.storage[i+1])
-
-            self.ranked_storage[i+1, :] = ranked_storage_next
-
-            # 2) Ranked Mass
-            # Aging
-            ranked_mass_next = np.roll(self.ranked_mass[i, :], shift=1)
-            ranked_mass_next[0] = 0
-            self.m_old[i+1] = self.m_old[i] + self.ranked_mass[i, -1]
-
-            # Reaction (forward Euler approach)
-            if self.reaction_type == 'Non-reactive':
-                m_dot = 0
-                m_dot_old = 0
-
-            elif self.reaction_type == 'FOK':
-                m_dot = reaction_rate_FOK(S_r=self.ranked_storage[i, :-1], m_r=ranked_mass_next[1:])
-                m_dot_old = reaction_rate_FOK(S_r=self.S_old[i], m_r=self.m_old[i+1])
-
-            elif self.reaction_type == 'ED':
-                m_dot = reaction_rate_ED(m_r=ranked_mass_next[1:])
-                m_dot_old = reaction_rate_ED(m_r=self.m_old[i+1])
-
-            ranked_mass_next[1:] = ranked_mass_next[1:] + m_dot
-            self.m_old[i+1] = self.m_old[i+1] + m_dot_old
-
-            # Input mass
-            ranked_mass_next = (
-                ranked_mass_next
-                + IN * self.dt * self.input_concentration[i] * self.input_mass_TTD[i, :]
-            )
-            self.m_old[i+1] = (
-                self.m_old[i+1]
-                + IN * self.dt * self.input_concentration[i] * (1 - np.sum(self.input_mass_TTD[i, :]))
-            )
-
-            # Output mass (TO DO : add ET)
-            ranked_mass_next = (
-                ranked_mass_next
-                / (1 + self.dt * (ET * ET_concentration[i] + OUT * self.output_concentration[i]) / (self.storage[i+1] * self.storage_concentration[i+1]))
-            )
-            self.m_old[i+1] = (
-                self.m_old[i+1]
-                / (1 + self.dt * (ET * ET_concentration[i] + OUT * self.output_concentration[i]) / (self.storage[i+1] * self.storage_concentration[i+1]))
-            )
-
-            # Assign ranked mass
-            self.ranked_mass[i+1, :] = ranked_mass_next
-
     def get_output(self):
         """
         General method calling all methods to solve the states of the reservoir
-        and returns the output flux, concentration, the TTD of fluxes and the
-        TTD of mass as a Tuple.
+        and returns the output flux, concentration and the flux TTD as a Tuple.
         """
         # Flow is computed by default
         self.solve_storage_and_output()
@@ -697,31 +492,17 @@ class Reservoir(BaseElement):
             self.solve_concentration()
             self.solve_reactive_or_with_ET_concentration()
             self.delete_inputs()
-            return [tuple((self.output_flux, self.output_concentration, None, None))]
+            return [tuple((self.output_flux, self.output_concentration, None))]
 
-        if self.concentration_computation is True and self.age_computation is True and self.mass_tracking_computation is False:
+        if self.concentration_computation is True and self.age_computation is True:
             # Case concentration and ranked storage only
             self.solve_concentration()
             self.solve_reactive_or_with_ET_concentration()
             self.solve_ranked_storage()
             self.delete_inputs()
             # Very slow to add new axis...
-            return [tuple((self.output_flux, self.output_concentration, self.ranked_storage[1:, :] / self.storage[1:, np.newaxis], None))]
-
-        if self.concentration_computation is True and self.mass_tracking_computation is True:
-            # Case concentration, ranked storage and ranked mass
-            self.solve_concentration()
-            self.solve_reactive_or_with_ET_concentration()
-            self.solve_ranked_storage_and_mass()
-            self.delete_inputs()
-            # Very slow to add new axis...
-            return [tuple((self.output_flux,
-                           self.output_concentration,
-                           self.ranked_storage[1:, :] / self.storage[1:, np.newaxis],
-                           self.ranked_mass[1:, :] / (self.storage * self.storage_concentration)[1:, np.newaxis]
-                           ))
-                    ]
+            return [tuple((self.output_flux, self.output_concentration, self.ranked_storage[1:, :] / self.storage[1:, np.newaxis]))]
 
         self.delete_inputs()
 
-        return [tuple((self.output_flux, None, None, None))]
+        return [tuple((self.output_flux, None, None))]
