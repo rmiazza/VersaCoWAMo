@@ -151,7 +151,6 @@ class RungeKutta4Solver:
     def solve(self, f, input, params, y0, dt, t0, t_end, compute_ET_internal, **kwargs):
         """
         Solve the ODE using the Runge-Kutta 4 (RK4) method.
-        Maybe wrong ! Needs to implement (t - ti) ?
 
         Parameters:
         f (function): The function defining the ODE (dy/dt = f(t, y))
