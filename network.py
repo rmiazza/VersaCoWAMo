@@ -1,6 +1,6 @@
 import numpy as np
 from node import Node
-from reservoirs import Reservoir
+from reservoir_specific import *
 
 
 class Network():
