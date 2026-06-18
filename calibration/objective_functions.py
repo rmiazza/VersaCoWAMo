@@ -296,3 +296,91 @@ def composite_objective(components):
         return score
 
     return objective
+
+# ===========================================================================
+# MCMC log likelihood functions
+# ===========================================================================
+
+def gaussian_log_likelihood(observed, simulated, sigma):
+    """
+    Log-likelihood assuming independent and identically distributed Gaussian
+    errors with standard deviation sigma and. sigma can be a fixed float or
+    an additional sampled parameter.
+
+    Log-likelihood for an AR(1) autocorrelated error model.
+
+    Parameters
+    ----------
+    observed : tuple(numpy.ndarray)
+        Tuple of observed timeseries.
+    simulated : tuple(numpy.ndarray)
+        Tuple of simulated timeseries.
+    sigma : float
+        Standard deviation of the residuals. Must be positive.
+
+    Returns
+    -------
+    float
+        Log-likelihood value.
+    """
+    residuals = observed - simulated
+    ll = -0.5 * np.sum(residuals**2 / sigma**2 + np.log(2 * np.pi * sigma**2))
+    return ll
+
+def ar1_log_likelihood(observed, simulated, phi, sigma):
+    """
+    Log-likelihood for an AR(1) autocorrelated error model.
+
+    Assumes residuals follow:
+        epsilon_t = phi * epsilon_{t-1} + eta_t
+        eta_t ~ N(0, sigma^2)
+
+    Parameters
+    ----------
+    observed : tuple(numpy.ndarray)
+        Tuple of observed timeseries.
+    simulated : tuple(numpy.ndarray)
+        Tuple of simulated timeseries.
+    phi : float
+        AR(1) autocorrelation coefficient. Must be in (-1, 1)
+        for stationarity.
+    sigma : float
+        Standard deviation of the AR(1) innovations (white noise
+        component). Must be positive.
+
+    Returns
+    -------
+    float
+        Log-likelihood value. Returns -inf for invalid phi or sigma.
+    """
+    if not (-1 < phi < 1):
+        return -np.inf
+    if sigma <= 0:
+        return -np.inf
+
+    residuals = observed[0] - simulated[0]
+
+    # Stationary variance of the AR(1) process
+    sigma2_stationary = sigma**2 / (1 - phi**2)
+
+    # Log-likelihood of the first residual (stationary distribution)
+    ll = -0.5 * (np.log(2 * np.pi * sigma2_stationary)
+                 + residuals[0]**2 / sigma2_stationary)
+
+    # Log-likelihood of remaining residuals (innovations)
+    innovations = residuals[1:] - phi * residuals[:-1]
+    ll += -0.5 * np.sum(
+        np.log(2 * np.pi * sigma**2) + innovations**2 / sigma**2
+    )
+
+    return ll
+
+def uniform_log_prior(parameter_values, bounds):
+    """
+    Uniform log-prior. Returns 0 if all parameters are within
+    bounds, -inf otherwise.
+    """
+    for value, (lo, hi) in zip(parameter_values, bounds):
+        if not (lo <= value <= hi):
+            return -np.inf
+    return 0.0
