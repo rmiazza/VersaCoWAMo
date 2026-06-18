@@ -1,3 +1,6 @@
+from reservoir_base import BaseReservoir
+
+
 class Unit():
     """
     This class defines a lumped hydrological model (i.e. a Unit in SuperflexPy).
@@ -86,3 +89,56 @@ class Unit():
         # Return the output of the last layer
         # (the last layer must contain a single element)
         return self._layers[-1][0].get_output()[0]
+
+    def get_parameter(self, element_id, key):
+        """
+        Returns the value of a parameter from a reservoir element
+        within this unit, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in this unit.
+        """
+        for layer in self._layers:
+            for element in layer:
+                if isinstance(element, BaseReservoir) and element._id == element_id:
+                    return element.get_parameter(key)
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in unit "{self.id}".'
+        )
+
+    def set_parameter(self, element_id, key, value):
+        """
+        Sets the value of a parameter on a reservoir element within
+        this unit, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+        value : float
+            New parameter value.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in this unit.
+        """
+        for layer in self._layers:
+            for element in layer:
+                if isinstance(element, BaseReservoir) and element._id == element_id:
+                    element.set_parameter(key, value)
+                    return
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in unit "{self.id}".'
+        )

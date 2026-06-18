@@ -241,3 +241,58 @@ class Network():
                         f'expected {ref_val} (as in Reservoir "{ref._id}"), '
                         f'got {getattr(res, flag)}.'
                     )
+
+    def get_parameter(self, element_id, key):
+        """
+        Returns the value of a parameter from a reservoir element
+        anywhere in the network, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in the network.
+        """
+        for node in self._nodes:
+            try:
+                return node.get_parameter(element_id, key)
+            except KeyError:
+                continue
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in the network.'
+        )
+
+    def set_parameter(self, element_id, key, value):
+        """
+        Sets the value of a parameter on a reservoir element anywhere
+        in the network, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+        value : float
+            New parameter value.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in the network.
+        """
+        for node in self._nodes:
+            try:
+                node.set_parameter(element_id, key, value)
+                return
+            except KeyError:
+                continue
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in the network.'
+        )

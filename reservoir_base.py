@@ -102,6 +102,24 @@ class BaseReservoir(BaseElement, ABC):
         # Evapotranspiration initialization (to be overridden by subclasses)
         self.compute_ET = False
         self.alpha_ET = 1
+    
+    def get_parameter(self, key):
+        """Returns the value of a parameter by key."""
+        if key not in self._parameters:
+            raise KeyError(
+                f'Unknown parameter "{key}" for reservoir "{self._id}". '
+                f'Available parameters: {list(self._parameters.keys())}.'
+            )
+        return self._parameters[key]
+
+    def set_parameter(self, key, value):
+        """Sets the value of a parameter by key."""
+        if key not in self._parameters:
+            raise KeyError(
+                f'Unknown parameter "{key}" for reservoir "{self._id}". '
+                f'Available parameters: {list(self._parameters.keys())}.'
+            )
+        self._parameters[key] = value
 
     def set_input(self, input_tuple):
         """

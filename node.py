@@ -138,3 +138,58 @@ class Node():
         # TO DO: implement routing function to delay outputs to downstream node
         output = input
         return output
+
+    def get_parameter(self, element_id, key):
+        """
+        Returns the value of a parameter from a reservoir element
+        within this node, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in this node.
+        """
+        for unit in self._units:
+            try:
+                return unit.get_parameter(element_id, key)
+            except KeyError:
+                continue
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in node "{self.id}".'
+        )
+
+    def set_parameter(self, element_id, key, value):
+        """
+        Sets the value of a parameter on a reservoir element within
+        this node, identified by its id.
+
+        Parameters
+        ----------
+        element_id : str
+            Identifier of the reservoir element.
+        key : str
+            Parameter name.
+        value : float
+            New parameter value.
+
+        Raises
+        ------
+        KeyError
+            If no reservoir with the given id is found in this node.
+        """
+        for unit in self._units:
+            try:
+                unit.set_parameter(element_id, key, value)
+                return
+            except KeyError:
+                continue
+        raise KeyError(
+            f'No reservoir with id "{element_id}" found in node "{self.id}".'
+        )

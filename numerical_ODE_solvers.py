@@ -79,7 +79,7 @@ class ForwardEulerSolver:
                 step_kwargs['ETp'] = ETp[i]
 
             # Advance storage
-            S_values[i+1] = S_values[i] + dt * f(S_values[i], input[i], **step_kwargs)
+            S_values[i+1] = max(S_values[i] + dt * f(S_values[i], input[i], **step_kwargs), 0.0)
 
             # Evaluate ET a posteriori from current storage state
             if compute_ET_internal:
@@ -175,7 +175,7 @@ class BackwardEulerSolver:
                 return S_next - S_values[i] - dt * f(S_next, input[i], **step_kwargs)
 
             # Solve for S[i+1] using S[i] as initial guess
-            S_values[i+1] = fsolve(implicit_equation, S_values[i])[0]
+            S_values[i+1] = max(fsolve(implicit_equation, S_values[i])[0], 0.0)
 
             # Evaluate ET a posteriori from the updated storage state
             if compute_ET_internal:
@@ -276,7 +276,7 @@ class RungeKutta4Solver:
             k4 = f(S_i + dt * k3, IN_i, **step_kwargs)
 
             # Weighted average of slopes
-            S_values[i+1] = S_i + dt * (k1 + 2*k2 + 2*k3 + k4) / 6
+            S_values[i+1] = max(S_i + dt * (k1 + 2*k2 + 2*k3 + k4) / 6, 0.0)
 
             # Evaluate ET a posteriori from the mean storage over the timestep,
             # consistent with the RK4 intermediate states

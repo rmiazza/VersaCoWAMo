@@ -15,7 +15,7 @@ class Splitter(BaseElement):
 
         Parameters
         ----------
-        weight : list(float)
+        weight : list(float) or list of numpy.array (in case of time variable weights)
             The weight defines the fraction (between 0 and 1) of a flux that goes
             into a downstream element (e.g. [.5, .2, .3]). It should sum to 1.
         id : str
