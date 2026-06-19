@@ -304,10 +304,8 @@ def composite_objective(components):
 def gaussian_log_likelihood(observed, simulated, sigma):
     """
     Log-likelihood assuming independent and identically distributed Gaussian
-    errors with standard deviation sigma and. sigma can be a fixed float or
+    errors with standard deviation sigma. sigma can be a fixed float or
     an additional sampled parameter.
-
-    Log-likelihood for an AR(1) autocorrelated error model.
 
     Parameters
     ----------
@@ -377,7 +375,7 @@ def ar1_log_likelihood(observed, simulated, phi, sigma):
 
 def uniform_log_prior(parameter_values, bounds):
     """
-    Uniform log-prior. Returns 0 if all parameters are within
+    Uniform log-prior (non-informative prior). Returns 0 if all parameters are within
     bounds, -inf otherwise.
     """
     for value, (lo, hi) in zip(parameter_values, bounds):
