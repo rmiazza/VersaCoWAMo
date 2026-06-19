@@ -1,5 +1,6 @@
 import numpy as np
 from node import Node
+from reservoir_base import BaseReservoir
 from reservoir_specific import *
 
 
@@ -219,7 +220,7 @@ class Network():
             for unit in node.units:
                 for layer in unit._layers:
                     for element in layer:
-                        if isinstance(element, Reservoir):
+                        if isinstance(element, BaseReservoir):
                             reservoirs.append(element)
 
         if len(reservoirs) == 0:
