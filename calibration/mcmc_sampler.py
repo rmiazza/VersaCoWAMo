@@ -79,8 +79,8 @@ class MCMCSampler:
         ----------
         parameter_values : numpy.ndarray
             Candidate parameter vector proposed by a walker.
-        observations : tuple(numpy.ndarray)
-            Tuple of observed timeseries.
+        observations : numpy.ndarray
+            Observed timeseries as a plain array.
 
         Returns
         -------
@@ -102,14 +102,14 @@ class MCMCSampler:
         except Exception:
             return -np.inf
 
-        # Check for numerical instability
-        for s in simulated:
-            if s is not None and (not np.all(np.isfinite(s)) or np.any(s < 0)):
-                return -np.inf
+        # Check for numerical instability on the plain array
+        # for discharge, could add: or np.any(simulated < 0)
+        if not np.all(np.isfinite(simulated)):  
+            return -np.inf
 
-        # Trim warmup period
-        obs_trimmed = tuple(o[self.warmup:] for o in observations)
-        sim_trimmed = tuple(s[self.warmup:] for s in simulated)
+        # Trim warmup period from both observed and simulated
+        obs_trimmed = observations[self.warmup:]
+        sim_trimmed = simulated[self.warmup:]
 
         # Evaluate log-likelihood
         ll = self.log_likelihood(obs_trimmed, sim_trimmed)

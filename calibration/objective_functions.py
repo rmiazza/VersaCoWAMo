@@ -303,9 +303,8 @@ def composite_objective(components):
 
 def gaussian_log_likelihood(observed, simulated, sigma):
     """
-    Log-likelihood assuming independent and identically distributed Gaussian
-    errors with standard deviation sigma. sigma can be a fixed float or
-    an additional sampled parameter.
+    Log-likelihood assuming independent and identically distributed
+    Gaussian errors with standard deviation sigma.
 
     Parameters
     ----------
@@ -319,11 +318,15 @@ def gaussian_log_likelihood(observed, simulated, sigma):
     Returns
     -------
     float
-        Log-likelihood value.
+        Log-likelihood value. Returns -inf for invalid sigma.
     """
+    if sigma <= 0:
+        return -np.inf
+
     residuals = observed - simulated
-    ll = -0.5 * np.sum(residuals**2 / sigma**2 + np.log(2 * np.pi * sigma**2))
-    return ll
+    return -0.5 * np.sum(residuals**2 / sigma**2
+                         + np.log(2 * np.pi * sigma**2))
+
 
 def ar1_log_likelihood(observed, simulated, phi, sigma):
     """
@@ -343,20 +346,19 @@ def ar1_log_likelihood(observed, simulated, phi, sigma):
         AR(1) autocorrelation coefficient. Must be in (-1, 1)
         for stationarity.
     sigma : float
-        Standard deviation of the AR(1) innovations (white noise
-        component). Must be positive.
+        Standard deviation of the AR(1) innovations. Must be positive.
 
     Returns
     -------
     float
-        Log-likelihood value. Returns -inf for invalid phi or sigma.
+        Log-likelihood value. Returns -inf for invalid parameters.
     """
     if not (-1 < phi < 1):
         return -np.inf
     if sigma <= 0:
         return -np.inf
 
-    residuals = observed[0] - simulated[0]
+    residuals = observed - simulated
 
     # Stationary variance of the AR(1) process
     sigma2_stationary = sigma**2 / (1 - phi**2)
@@ -373,6 +375,70 @@ def ar1_log_likelihood(observed, simulated, phi, sigma):
 
     return ll
 
+
+def ar1_heteroscedastic_log_likelihood(observed, simulated, phi,
+                                        sigma_0, sigma_1):
+    """
+    Log-likelihood for an AR(1) autocorrelated, heteroscedastic error
+    model. The innovation standard deviation scales linearly with the
+    model prediction at each timestep:
+
+        epsilon_t = phi * epsilon_{t-1} + eta_t
+        eta_t ~ N(0, sigma_t^2)
+        sigma_t = sigma_0 + sigma_1 * Y_sim(t)
+
+    Parameters
+    ----------
+    observed : tuple(numpy.ndarray)
+        Tuple of observed timeseries.
+    simulated : tuple(numpy.ndarray)
+        Tuple of simulated timeseries.
+    phi : float
+        AR(1) autocorrelation coefficient. Must be in (-1, 1).
+    sigma_0 : float
+        Baseline standard deviation. Must be strictly positive.
+    sigma_1 : float
+        Proportional coefficient (dimensionless). Must be non-negative.
+        When sigma_1=0, reduces to a homoscedastic AR(1) likelihood.
+
+    Returns
+    -------
+    float
+        Log-likelihood value. Returns -inf for invalid parameters.
+    """
+    if not (-1 < phi < 1):
+        return -np.inf
+    if sigma_0 <= 0:
+        return -np.inf
+    if sigma_1 < 0:
+        return -np.inf
+
+    residuals = observed - simulated
+
+    # Time-varying innovation standard deviation
+    sigma_t = sigma_0 + sigma_1 * simulated
+
+    if np.any(sigma_t <= 0):
+        return -np.inf
+
+    # First residual: approximate stationary distribution
+    sigma2_mean = np.mean(sigma_t**2)
+    sigma2_stationary = sigma2_mean / (1 - phi**2)
+
+    ll = -0.5 * (np.log(2 * np.pi * sigma2_stationary)
+                 + residuals[0]**2 / sigma2_stationary)
+
+    # Remaining residuals: conditional on previous residual
+    innovations = residuals[1:] - phi * residuals[:-1]
+    sigma_t_remaining = sigma_t[1:]
+
+    ll += -0.5 * np.sum(
+        np.log(2 * np.pi * sigma_t_remaining**2)
+        + innovations**2 / sigma_t_remaining**2
+    )
+
+    return ll
+
 def uniform_log_prior(parameter_values, bounds):
     """
     Uniform log-prior (non-informative prior). Returns 0 if all parameters are within
@@ -382,3 +448,24 @@ def uniform_log_prior(parameter_values, bounds):
         if not (lo <= value <= hi):
             return -np.inf
     return 0.0
+
+class ErrorModel:
+    """
+    Container for the error model nuisance parameters.
+    """
+    def __init__(self, phi=0.5, sigma_0=1.0, sigma_1=0.01):
+        self._parameters = {
+            'phi':     phi,
+            'sigma_0': sigma_0,
+            'sigma_1': sigma_1
+        }
+
+    def get_parameter(self, key):
+        if key not in self._parameters:
+            raise KeyError(f'Unknown error model parameter "{key}".')
+        return self._parameters[key]
+
+    def set_parameter(self, key, value):
+        if key not in self._parameters:
+            raise KeyError(f'Unknown error model parameter "{key}".')
+        self._parameters[key] = value
