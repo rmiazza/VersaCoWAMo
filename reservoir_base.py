@@ -187,6 +187,8 @@ class BaseReservoir(BaseElement, ABC):
         Solves the storage ODE and computes the output flux timeseries.
         Delegates the numerical integration to the external solver, passing
         the ODE and parameters defined by the specific reservoir subclass.
+
+        To be overridden by subclasses.
         """
         # Retrieve the ODE and parameters from the subclass implementation
         ode = self._define_storage_ode()

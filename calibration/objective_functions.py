@@ -335,6 +335,21 @@ def ar1_log_likelihood(observed, simulated, phi, sigma):
     Assumes residuals follow:
         epsilon_t = phi * epsilon_{t-1} + eta_t
         eta_t ~ N(0, sigma^2)
+    
+    /!\/!\/!\ 
+    Assumes that all observations are recorded at the same frequency,
+    i.e. does not account for varying observation intervals in the real-world data
+
+    If residuals do not correspond to a constant timestep, the likelihood is misspecified in a systematic way.
+    For pairs of observations close together in time, the true autocorrelation is high — residuals genuinely carry
+    information about their neighbor. For pairs far apart, the residuals are nearly independent. The fixed-ϕ\phi
+    ϕ AR(1) treats all pairs identically, which means:
+
+    - It underestimates the dependence between close observations → overstates their independent information content → posterior too narrow for those periods
+    - It overestimates the dependence between distant observations → understates their information content → posterior too wide for those periods
+
+    Should switch to a Continuous-Time AR(1) process instead! -> TO DO
+    /!\/!\/!\ 
 
     Parameters
     ----------
@@ -386,6 +401,21 @@ def ar1_heteroscedastic_log_likelihood(observed, simulated, phi,
         epsilon_t = phi * epsilon_{t-1} + eta_t
         eta_t ~ N(0, sigma_t^2)
         sigma_t = sigma_0 + sigma_1 * Y_sim(t)
+    
+    /!\/!\/!\ 
+    Assumes that all observations are recorded at the same frequency,
+    i.e. does not account for varying observation intervals in the real-world data
+
+    If residuals do not correspond to a constant timestep, the likelihood is misspecified in a systematic way.
+    For pairs of observations close together in time, the true autocorrelation is high — residuals genuinely carry
+    information about their neighbor. For pairs far apart, the residuals are nearly independent. The fixed-ϕ\phi
+    ϕ AR(1) treats all pairs identically, which means:
+
+    - It underestimates the dependence between close observations → overstates their independent information content → posterior too narrow for those periods
+    - It overestimates the dependence between distant observations → understates their information content → posterior too wide for those periods
+
+    Should switch to a Continuous-Time AR(1) process instead! -> TO DO
+    /!\/!\/!\ 
 
     Parameters
     ----------
