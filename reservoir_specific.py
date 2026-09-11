@@ -446,19 +446,22 @@ class PBPowerReservoir(BaseReservoir):
     def _define_ET(self):
         """
         Returns the internal ET function, which is computed as a piecewise linear
-        function of saturation (/!\ not storage /!\), bounded between 0 at the
-        wilting point and ETp above s_star.
+        function of storage (/!\ not saturation /!\, for consistency with the numerical
+        solvers), bounded between 0 at the wilting point and ETp above s_star.
 
         Returns
         -------
         callable
-            ET_function(s, ETp) -> float
+            ET_function(S, ETp) -> float
         """
         sw = self.sw
         s_star = self.s_star
+        W = self._parameters['W']
+        n = self._parameters['n']
+        Zr = self._parameters['Zr']
 
-        def ET_function(s, ETp):
-            return ETp * np.minimum(1, np.maximum((s - sw) / (s_star - sw), 0))
+        def ET_function(S, ETp):
+            return ETp * np.minimum(1, np.maximum(((S-W)/(n*Zr) - sw) / (s_star - sw), 0))
 
         return ET_function
     
@@ -475,7 +478,7 @@ class PBPowerReservoir(BaseReservoir):
             dS/dt = IN_net - a * ((S-W)/(nZr))^b
 
         ODE with internal ET:
-            dS/dt = IN - ET((S-W)/(nZr), ETp) - a * ((S-W)/(nZr))^b
+            dS/dt = IN - ET(S, ETp) - a * ((S-W)/(nZr))^b
 
         Returns
         -------
@@ -492,7 +495,7 @@ class PBPowerReservoir(BaseReservoir):
             ET_func = self._define_ET()
 
             def ode(S, IN, ETp):
-                return IN - ET_func((S-W)/(n*Zr), ETp) - a * ((S-W)/(n*Zr))**b
+                return IN - ET_func(S, ETp) - a * ((S-W)/(n*Zr))**b
 
         else:
             def ode(S, IN):

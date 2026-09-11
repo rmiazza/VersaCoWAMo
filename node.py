@@ -36,7 +36,7 @@ class Node():
 
         self.id = id
 
-        self._error_message = 'module : superflexPy, Node : {},'.format(id)
+        self._error_message = 'module : VersaCoWAMo, Node : {},'.format(id)
         self._error_message += ' Error message : '
 
         self._units = []
@@ -102,7 +102,7 @@ class Node():
         if len(self._weights) == 1:  # case single unit in node
             return u.run_unit()  # gives back tuple with outputs from sigle unit
         
-        # Case multiple units in node -> apply weights based on area
+        # Case multiple units in node -> apply weights based on area fraction (w)
         for i, (u, w) in enumerate(zip(self._units, self._weights)):
             q, c, ttd_q = u.run_unit()
 

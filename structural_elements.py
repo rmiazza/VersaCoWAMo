@@ -6,6 +6,27 @@ class Splitter(BaseElement):
     """
     This class implements a Splitter. A Splitter is used to connect one element
     to multiple elements downstream.
+
+    Parameters
+    ----------
+    weight : list(float), list(numpy.array), or callable
+        The weight defines the fraction (between 0 and 1) of a flux that
+        goes into a downstream element. It should sum to 1 at every
+        timestep. Three forms are accepted:
+        - list(float): constant weights, e.g. [.5, .2, .3].
+        - list(numpy.array): precomputed time-variable weights, one array
+            per downstream branch (same length as the input flux).
+        - callable: a function of the form `f(input_flux) -> list of
+            weight arrays`, evaluated at runtime inside get_output(), after
+            the input has been set. Use this when the weight depends on the
+            state of an already-solved upstream element (e.g. a reservoir's
+            storage) rather than on the flux passing through the splitter
+            itself. `input_flux` is always passed for interface consistency,
+            but the function is free to ignore it (as in a storage-only
+            weight rule) — any other state it needs (e.g. a reservoir
+            object) should be captured via closure instead.
+    id : str
+        Identifier of the element.
     """
     num_upstream = 1
 
@@ -17,7 +38,8 @@ class Splitter(BaseElement):
         ----------
         weight : list(float) or list of numpy.array (in case of time variable weights)
             The weight defines the fraction (between 0 and 1) of a flux that goes
-            into a downstream element (e.g. [.5, .2, .3]). It should sum to 1.
+            into a downstream element (e.g. [.5, .2, .3]). It should sum to 1 at
+            every timestep.
         id : str
             Itentifier of the element.
         """
@@ -57,10 +79,12 @@ class Splitter(BaseElement):
               numpy.ndarray.
         """
 
-        output = []
+        weight = self._weight(self.input_flux) if callable(self._weight) else self._weight
 
-        for w in self._weight:
-            output.append(tuple((self.input_flux * w, self.input_concentration, self.input_TTD)))
+        output = [
+            tuple((self.input_flux * w, self.input_concentration, self.input_TTD))
+            for w in weight
+        ]
 
         # Reassign attributes to save memory
         self.input_flux = None
